@@ -125,12 +125,100 @@
   .filter-tab-security { color: #8a4a4a !important; }
   .filter-tab-security.active { color: #e05050 !important; border-bottom-color: #e05050 !important; }
 
+  /* SITE DESCRIPTION */
+  .site-description {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+  }
+  .site-description-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .site-desc-text {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 300;
+    line-height: 1.5;
+  }
+  .site-desc-text strong { color: var(--text); font-weight: 500; }
+
+  /* SEARCH & TIME FILTER TOOLBAR */
+  .toolbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+  }
+  .toolbar-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.8rem;
+    padding: 7px 10px 7px 30px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent2); }
+  .search-input::placeholder { color: var(--text-dim); }
+  .time-filter-group {
+    display: flex;
+    gap: 2px;
+  }
+  .time-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.05em;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .time-btn:hover { color: var(--text); border-color: var(--text-muted); }
+  .time-btn.active { background: var(--accent2); border-color: var(--accent2); color: #0e0e0e; font-weight: 500; }
+
   @media (max-width: 600px) {
     .logo-sub { display: none; }
     .timestamp { display: none; }
     .header-inner { height: 56px; }
     main { padding: 16px; }
     .news-grid, .skeleton-grid { grid-template-columns: 1fr; }
+    .site-description { padding: 12px 16px; }
+    .toolbar { padding: 8px 16px; }
+    .time-btn { padding: 5px 7px; font-size: 0.6rem; }
   }
 </style>
 </head>
@@ -138,7 +226,7 @@
 
 <header>
   <div class="header-inner">
-    <div class="logo">
+    <div class="logo" onclick="filterBy('all', document.querySelector('.filter-tab')); document.getElementById('searchInput').value=''; setTimeFilter(0, document.querySelector('.time-btn'));" style="cursor:pointer;">
       <div class="logo-main">México<span>Monitor</span></div>
       <div class="logo-sub">News Dashboard</div>
     </div>
@@ -161,6 +249,35 @@
     <button class="filter-tab" onclick="filterBy('expat', this)">Expat</button>
     <button class="filter-tab" onclick="filterBy('international', this)">Intl Coverage</button>
     <button class="filter-tab filter-tab-security" onclick="filterBy('security', this)">⚠ Cartel &amp; Security</button>
+  </div>
+</div>
+
+<!-- SITE DESCRIPTION -->
+<div class="site-description">
+  <div class="site-description-inner">
+    <div class="site-desc-text">
+      <strong>México Monitor</strong> aggregates the latest headlines from <strong>25+ sources</strong> across Mexico —
+      national outlets, regional papers, expat publications, and international coverage —
+      all in one place. English throughout, with <strong>auto-translation</strong> for Spanish-language sources.
+    </div>
+  </div>
+</div>
+
+<!-- SEARCH + TIME FILTER TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search headlines and summaries…" oninput="applyDisplayFilters()">
+    </div>
+    <div class="time-filter-group">
+      <button class="time-btn active" data-hours="0" onclick="setTimeFilter(0, this)">All time</button>
+      <button class="time-btn" data-hours="1" onclick="setTimeFilter(1, this)">1h</button>
+      <button class="time-btn" data-hours="6" onclick="setTimeFilter(6, this)">6h</button>
+      <button class="time-btn" data-hours="24" onclick="setTimeFilter(24, this)">24h</button>
+      <button class="time-btn" data-hours="72" onclick="setTimeFilter(72, this)">3d</button>
+      <button class="time-btn" data-hours="168" onclick="setTimeFilter(168, this)">7d</button>
+    </div>
   </div>
 </div>
 
@@ -288,6 +405,7 @@ let sourceStatus = {};
 let currentFilter = 'all';
 let activeFilterEl = null;
 let warningAcknowledged = false;
+let currentTimeHours = 0; // 0 = all time
 
 function acknowledgeWarning() {
   warningAcknowledged = true;
@@ -468,24 +586,50 @@ function renderSourcePills() {
   }).join('');
 }
 
+// ─── SEARCH & TIME FILTER ─────────────────────────────────────────────────────
+function setTimeFilter(hours, el) {
+  currentTimeHours = hours;
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  applyDisplayFilters();
+}
+
+function applyDisplayFilters() {
+  const query = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  const isSecurityTab = currentFilter === 'security';
+
+  let filtered;
+  if (isSecurityTab) {
+    filtered = allArticles.filter(a => a.tags.includes('security'));
+  } else if (currentFilter === 'all') {
+    filtered = allArticles.filter(a => !a.tags.includes('security'));
+  } else {
+    filtered = allArticles.filter(a => !a.tags.includes('security') && a.tags.includes(currentFilter));
+  }
+
+  // Time filter
+  if (currentTimeHours > 0) {
+    const cutoff = Date.now() - currentTimeHours * 3600 * 1000;
+    filtered = filtered.filter(a => a.date && a.date.getTime() >= cutoff);
+  }
+
+  // Search filter
+  if (query) {
+    filtered = filtered.filter(a =>
+      a.title.toLowerCase().includes(query) ||
+      (a.summary && a.summary.toLowerCase().includes(query))
+    );
+  }
+
+  renderCards(filtered, isSecurityTab);
+}
+
 // ─── FILTER ───────────────────────────────────────────────────────────────────
 function filterBy(tag, el) {
   currentFilter = tag;
   document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-
-  let filtered;
-  if (tag === 'security') {
-    // Security tab: show ONLY security-tagged articles
-    filtered = allArticles.filter(a => a.tags.includes('security'));
-  } else if (tag === 'all') {
-    // All Sources: exclude security articles
-    filtered = allArticles.filter(a => !a.tags.includes('security'));
-  } else {
-    // Other tabs: exclude security articles, filter by tag
-    filtered = allArticles.filter(a => !a.tags.includes('security') && a.tags.includes(tag));
-  }
-  renderCards(filtered, tag === 'security');
+  applyDisplayFilters();
 }
 
 // ─── MAIN LOAD ────────────────────────────────────────────────────────────────
@@ -529,9 +673,8 @@ async function loadAllFeeds() {
 
   renderSourcePills();
 
-  // Re-apply current filter
-  const activeTab = document.querySelector('.filter-tab.active') || document.querySelector('.filter-tab');
-  filterBy(currentFilter, activeTab);
+  // Re-apply current filter + search + time
+  applyDisplayFilters();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
