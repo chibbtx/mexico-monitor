@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>México Monitor</title>
+<title>The México Monitor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
 <style>
@@ -14,6 +14,7 @@
     --border: #2a2a2a;
     --accent: #c8102e;
     --accent2: #e8a020;
+    --accent3: #006847;
     --text: #e8e4dc;
     --text-muted: #7a7570;
     --text-dim: #4a4540;
@@ -31,7 +32,7 @@
   .header-right { display: flex; align-items: center; gap: 16px; }
   .timestamp { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; }
   .refresh-btn { background: var(--accent); color: white; border: none; padding: 8px 18px; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 7px; border-radius: 2px; }
-  .refresh-btn:hover { background: #a50d26; }
+  .refresh-btn:hover { filter: brightness(0.85); }
   .refresh-btn:active { transform: scale(0.97); }
   .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
   .spin { display: inline-block; animation: spin 1s linear infinite; }
@@ -227,7 +228,7 @@
 <header>
   <div class="header-inner">
     <div class="logo" onclick="filterBy('all', document.querySelector('.filter-tab')); document.getElementById('searchInput').value=''; setTimeFilter(0, document.querySelector('.time-btn'));" style="cursor:pointer;">
-      <div class="logo-main">México<span>Monitor</span></div>
+      <div class="logo-main"><span style="color:var(--accent3)">The </span><span style="color:var(--text)">México</span><span style="color:var(--accent)">Monitor</span></div>
       <div class="logo-sub">News Dashboard</div>
     </div>
     <div class="header-right">
@@ -256,9 +257,7 @@
 <div class="site-description">
   <div class="site-description-inner">
     <div class="site-desc-text">
-      <strong>México Monitor</strong> aggregates the latest headlines from <strong>25+ sources</strong> across Mexico —
-      national outlets, regional papers, expat publications, and international coverage —
-      all in one place. English throughout, with <strong>auto-translation</strong> for Spanish-language sources.
+      <strong>The México Monitor</strong> aggregates the latest headlines from national outlets, regional papers, expat publications, and international coverage across Mexico — all in English, with auto-translation for Spanish-language sources.
     </div>
   </div>
 </div>
@@ -306,6 +305,14 @@
 </main>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// MÉXICO MONITOR — NEWS DASHBOARD
+// Built on the Regional News Dashboard Template
+// ⚠️  NOTE: MyMemory translation is rate-limited at scale. With 10+ Spanish feeds
+//     loading simultaneously, some translations may fall back to original Spanish.
+//     This is expected behavior from the free API tier.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 // ─── FEED CONFIG ──────────────────────────────────────────────────────────────
 const FEEDS = [
   // English — National
@@ -344,7 +351,7 @@ const FEEDS = [
 // even when covering world events from a Mexican perspective.
 // International sources (BBC, Al Jazeera) are filtered strictly by keyword match
 // across BOTH headline and summary.
-const MEXICAN_SOURCES = new Set([
+const LOCAL_SOURCES = new Set([
   'Milenio', 'El Universal', 'Animal Politico', 'Excélsior', 'SinEmbargo',
   'Proceso', 'La Jornada', 'El Financiero', 'Expansión', 'Aristegui Noticias',
   'MND · Top Stories', 'MND · News', 'MND · Local', 'The News MX', 'Mexico Today',
@@ -352,7 +359,7 @@ const MEXICAN_SOURCES = new Set([
   'Borderland Beat', 'InSight Crime'
 ]);
 
-const MEXICO_KEYWORDS = [
+const RELEVANCE_KEYWORDS = [
   // Country
   'mexico','mexican','méxico','mexicano','mexicana','mexicanos','mexicanas',
   // States
@@ -383,7 +390,9 @@ const MEXICO_KEYWORDS = [
   'mexican immigrants','deportation to mexico','migrant caravan'
 ];
 
-function isMexicoRelevant(article) {
+function isRelevant(article) {
+  if (LOCAL_SOURCES.has(article.source)) return true;
+  if (!RELEVANCE_KEYWORDS.length) return true;
   // Check translated text AND original Spanish text (catches "México", "mexicano", etc.)
   const haystack = (
     article.title + ' ' +
@@ -392,7 +401,7 @@ function isMexicoRelevant(article) {
     (article.rawSummary || '')
   ).toLowerCase();
 
-  return MEXICO_KEYWORDS.some(kw => haystack.includes(kw));
+  return RELEVANCE_KEYWORDS.some(kw => haystack.includes(kw));
 }
 
 
@@ -403,14 +412,12 @@ const TRANSLATE_API = 'https://api.mymemory.translated.net/get';
 let allArticles = [];
 let sourceStatus = {};
 let currentFilter = 'all';
-let activeFilterEl = null;
 let warningAcknowledged = false;
-let currentTimeHours = 0; // 0 = all time
+let currentTimeHours = 0;
 
 function acknowledgeWarning() {
   warningAcknowledged = true;
-  const activeTab = document.querySelector('.filter-tab.active');
-  filterBy('security', activeTab);
+  filterBy('security', document.querySelector('.filter-tab-security'));
 }
 
 // ─── PROXY HELPERS ────────────────────────────────────────────────────────────
@@ -469,10 +476,10 @@ async function fetchFeedItems(url) {
 }
 
 // ─── TRANSLATE ────────────────────────────────────────────────────────────────
-async function translate(text) {
+async function translate(text, fromLang = 'es') {
   if (!text || !text.trim()) return text;
   try {
-    const params = new URLSearchParams({ q: text.slice(0, 500), langpair: 'es|en' });
+    const params = new URLSearchParams({ q: text.slice(0, 500), langpair: fromLang + '|en' });
     const r = await fetch(TRANSLATE_API + '?' + params, { signal: AbortSignal.timeout(6000) });
     const d = await r.json();
     if (d.responseStatus === 200 && d.responseData?.translatedText) return d.responseData.translatedText;
@@ -491,7 +498,7 @@ async function fetchFeed(feed) {
       const rawTitle = title;
       const rawSummary = summary;
       if (feed.lang === 'es') {
-        [title, summary] = await Promise.all([translate(title), summary ? translate(summary) : Promise.resolve('')]);
+        [title, summary] = await Promise.all([translate(title, feed.lang), summary ? translate(summary, feed.lang) : Promise.resolve('')]);
       }
       return {
         title: title.trim(),
@@ -507,7 +514,7 @@ async function fetchFeed(feed) {
     }));
     sourceStatus[feed.name] = 'ok';
     // Apply relevance filter — Mexican sources pass freely, international filtered by keyword
-    return articles.filter(a => a.title && isMexicoRelevant(a));
+    return articles.filter(a => a.title && isRelevant(a));
   } catch (e) {
     sourceStatus[feed.name] = 'error';
     return [];
@@ -654,16 +661,13 @@ async function loadAllFeeds() {
 
   const results = await Promise.allSettled(FEEDS.map(f => fetchFeed(f)));
   const rawArticles = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
-  const totalRaw = rawArticles.length;
   allArticles = rawArticles.sort((a, b) => b.date - a.date);
 
   const okCount = Object.values(sourceStatus).filter(s => s === 'ok').length;
   const errCount = Object.values(sourceStatus).filter(s => s === 'error').length;
 
   dot.className = okCount === 0 ? 'dot error' : 'dot';
-  const filteredOut = totalRaw - allArticles.length;
   statusText.textContent = okCount + ' source' + (okCount !== 1 ? 's' : '') + ' loaded' +
-    (filteredOut > 0 ? ' · ' + filteredOut + ' off-topic filtered' : '') +
     (errCount ? ' · ' + errCount + ' unavailable' : '');
 
   btn.classList.remove('loading');
