@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>México Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=IBM+Plex+Sans:wght@300;400;500&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --surface: #161616;
+    --surface2: #1f1f1f;
+    --border: #2a2a2a;
+    --accent: #c8102e;
+    --accent2: #e8a020;
+    --text: #e8e4dc;
+    --text-muted: #7a7570;
+    --text-dim: #4a4540;
+    --green: #2ecc71;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; position: sticky; top: 0; z-index: 100; }
+  .header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+  .logo { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0; }
+  .logo-main { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 1.5rem; letter-spacing: -0.02em; color: var(--text); }
+  .logo-main span { color: var(--accent); }
+  .logo-sub { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; color: var(--text-muted); letter-spacing: 0.15em; text-transform: uppercase; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .timestamp { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em; }
+  .refresh-btn { background: var(--accent); color: white; border: none; padding: 8px 18px; font-family: 'IBM Plex Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 7px; border-radius: 2px; }
+  .refresh-btn:hover { background: #a50d26; }
+  .refresh-btn:active { transform: scale(0.97); }
+  .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .filter-bar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; }
+  .filter-inner { max-width: 1200px; margin: 0 auto; display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
+  .filter-inner::-webkit-scrollbar { display: none; }
+  .filter-tab { padding: 12px 20px; font-size: 0.75rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; background: none; border-top: none; border-left: none; border-right: none; font-family: 'IBM Plex Sans', sans-serif; }
+  .filter-tab:hover { color: var(--text); }
+  .filter-tab.active { color: var(--accent2); border-bottom-color: var(--accent2); }
+
+  main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+  .status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 8px; }
+  .status-left { display: flex; align-items: center; gap: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-muted); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .dot.loading { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); animation: pulse 1s ease-in-out infinite; }
+  .dot.error { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .story-count { font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--text-dim); }
+
+  .news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .card { background: var(--surface); padding: 20px; transition: background 0.15s; display: flex; flex-direction: column; gap: 10px; cursor: pointer; text-decoration: none; color: inherit; }
+  .card:hover { background: var(--surface2); }
+  .card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .card-source { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent2); }
+  .card-lang { font-family: 'IBM Plex Mono', monospace; font-size: 0.58rem; color: var(--text-dim); letter-spacing: 0.05em; }
+  .card-title { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; line-height: 1.35; color: var(--text); }
+  .card-summary { font-size: 0.82rem; line-height: 1.6; color: var(--text-muted); font-weight: 300; }
+  .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+  .card-time { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; color: var(--text-dim); }
+  .card-arrow { font-size: 0.7rem; color: var(--text-dim); transition: color 0.15s, transform 0.15s; }
+  .card:hover .card-arrow { color: var(--accent2); transform: translateX(3px); }
+
+  .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); }
+  .skeleton-card { background: var(--surface); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .skel { background: var(--surface2); border-radius: 2px; animation: shimmer 1.5s ease-in-out infinite; }
+  @keyframes shimmer { 0%,100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+
+  .empty-state { text-align: center; padding: 80px 24px; color: var(--text-muted); }
+  .empty-state h3 { font-family: 'Playfair Display', serif; font-size: 1.4rem; margin-bottom: 8px; color: var(--text-dim); }
+  .empty-state p { font-size: 0.85rem; line-height: 1.6; }
+
+  .sources-panel { margin-top: 40px; border-top: 1px solid var(--border); padding-top: 20px; }
+  .sources-title { font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+  .sources-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .source-pill { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; padding: 4px 10px; border: 1px solid var(--border); color: var(--text-muted); letter-spacing: 0.05em; border-radius: 2px; }
+  .source-pill.ok { border-color: #1e3a1e; color: #4a9a4a; }
+  .source-pill.err { border-color: #3a1e1e; color: #9a4a4a; }
+
+  /* WARNING GATE */
+  .warning-gate {
+    background: #1a0f0f;
+    border: 1px solid #5a1a1a;
+    padding: 48px 32px;
+    text-align: center;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+  .warning-icon { font-size: 2.5rem; margin-bottom: 16px; }
+  .warning-gate h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    color: #e05050;
+    margin-bottom: 16px;
+  }
+  .warning-gate p {
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .warning-sub { font-size: 0.75rem !important; color: var(--text-dim) !important; }
+  .warning-btn {
+    background: #5a1a1a;
+    color: #e8c0c0;
+    border: 1px solid #8a2a2a;
+    padding: 10px 24px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    margin-top: 8px;
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+  .warning-btn:hover { background: #7a2a2a; }
+
+  /* SECURITY TAB */
+  .filter-tab-security { color: #8a4a4a !important; }
+  .filter-tab-security.active { color: #e05050 !important; border-bottom-color: #e05050 !important; }
+
+  @media (max-width: 600px) {
+    .logo-sub { display: none; }
+    .timestamp { display: none; }
+    .header-inner { height: 56px; }
+    main { padding: 16px; }
+    .news-grid, .skeleton-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-main">México<span>Monitor</span></div>
+      <div class="logo-sub">News Dashboard</div>
+    </div>
+    <div class="header-right">
+      <div class="timestamp" id="timestamp">—</div>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadAllFeeds()">
+        <span id="refreshIcon">↻</span> Refresh
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-inner">
+    <button class="filter-tab active" onclick="filterBy('all', this)">All Sources</button>
+    <button class="filter-tab" onclick="filterBy('english', this)">English</button>
+    <button class="filter-tab" onclick="filterBy('spanish', this)">En Español</button>
+    <button class="filter-tab" onclick="filterBy('national', this)">National MX</button>
+    <button class="filter-tab" onclick="filterBy('regional', this)">Regional</button>
+    <button class="filter-tab" onclick="filterBy('expat', this)">Expat</button>
+    <button class="filter-tab" onclick="filterBy('international', this)">Intl Coverage</button>
+    <button class="filter-tab filter-tab-security" onclick="filterBy('security', this)">⚠ Cartel &amp; Security</button>
+  </div>
+</div>
+
+<main>
+  <div class="status-bar">
+    <div class="status-left">
+      <div class="dot loading" id="statusDot"></div>
+      <span id="statusText">Loading feeds...</span>
+    </div>
+    <div class="story-count" id="storyCount"></div>
+  </div>
+  <div id="newsContainer">
+    <div class="skeleton-grid" id="skeleton">
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:30%"></div><div class="skel" style="height:18px;width:90%"></div><div class="skel" style="height:14px;width:75%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:40%"></div><div class="skel" style="height:18px;width:85%"></div><div class="skel" style="height:14px;width:65%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:35%"></div><div class="skel" style="height:18px;width:92%"></div><div class="skel" style="height:14px;width:70%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:28%"></div><div class="skel" style="height:18px;width:88%"></div><div class="skel" style="height:14px;width:60%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:45%"></div><div class="skel" style="height:18px;width:80%"></div><div class="skel" style="height:14px;width:72%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+      <div class="skeleton-card"><div class="skel" style="height:10px;width:32%"></div><div class="skel" style="height:18px;width:95%"></div><div class="skel" style="height:14px;width:68%"></div><div class="skel" style="height:9px;width:20%"></div></div>
+    </div>
+  </div>
+  <div class="sources-panel">
+    <div class="sources-title">Sources</div>
+    <div class="sources-list" id="sourcesList"></div>
+  </div>
+</main>
+
+<script>
+// ─── FEED CONFIG ──────────────────────────────────────────────────────────────
+const FEEDS = [
+  // English — National
+  { name: 'MND · Top Stories',   lang: 'en', tags: ['english','national'],      url: 'https://mexiconewsdaily.com/feed/',                          max: 6 },
+  { name: 'MND · News',          lang: 'en', tags: ['english','national'],      url: 'https://mexiconewsdaily.com/category/news/feed/',            max: 8 },
+  { name: 'MND · Local',         lang: 'en', tags: ['english','regional'],      url: 'https://mexiconewsdaily.com/category/mnd-local/feed/',       max: 8 },
+  { name: 'The News MX',        lang: 'en', tags: ['english','national'],      url: 'https://thenews.mx/feed/' },
+  { name: 'Mexico Today',       lang: 'en', tags: ['english','national'],      url: 'https://mexicotoday.com/feed/' },
+  // English — Regional / Expat
+  { name: 'Yucatan Times',      lang: 'en', tags: ['english','regional'],      url: 'https://theyucatantimes.com/feed/' },
+  { name: 'Vallarta Daily',     lang: 'en', tags: ['english','regional'],      url: 'https://www.vallartadaily.com/feed/' },
+  { name: 'Banderas News',      lang: 'en', tags: ['english','regional'],      url: 'https://www.banderasnews.com/feed/' },
+  { name: 'Mexperience',        lang: 'en', tags: ['english','regional','expat'], url: 'https://www.mexperience.com/feed/' },
+  { name: 'Qroo.us',            lang: 'en', tags: ['english','regional','expat'], url: 'https://qroo.us/feed/' },
+  // English — International with Mexico focus
+  { name: 'BBC Latin America',  lang: 'en', tags: ['english','international'], url: 'https://feeds.bbci.co.uk/news/world/latin_america/rss.xml' },
+  { name: 'AP Latin America',   lang: 'en', tags: ['english','international'], url: 'https://news.google.com/rss/search?q=mexico+site:apnews.com&hl=en-US&gl=US&ceid=US:en' },
+  // Spanish — National / Investigative
+  { name: 'Milenio',            lang: 'es', tags: ['spanish','national'],      url: 'https://www.milenio.com/rss' },
+  { name: 'El Universal',       lang: 'es', tags: ['spanish','national'],      url: 'https://www.el-universal.com.mx/rss.xml' },
+  { name: 'Excélsior',          lang: 'es', tags: ['spanish','national'],      url: 'https://www.excelsior.com.mx/rss.xml' },
+  { name: 'Animal Politico',    lang: 'es', tags: ['spanish','national'],      url: 'https://www.animalpolitico.com/feed' },
+  { name: 'SinEmbargo',         lang: 'es', tags: ['spanish','national'],      url: 'https://www.sinembargo.mx/feed' },
+  { name: 'Proceso',            lang: 'es', tags: ['spanish','national'],      url: 'https://www.proceso.com.mx/rss/' },
+  { name: 'La Jornada',         lang: 'es', tags: ['spanish','national'],      url: 'https://www.jornada.com.mx/rss/edicion.xml' },
+  { name: 'El Financiero',      lang: 'es', tags: ['spanish','national'],      url: 'https://www.elfinanciero.com.mx/arc/outboundfeeds/rss/' },
+  { name: 'Expansión',          lang: 'es', tags: ['spanish','national'],      url: 'https://expansion.mx/rss' },
+  { name: 'Aristegui Noticias', lang: 'es', tags: ['spanish','national'],      url: 'https://editorial.aristeguinoticias.com/category/mexico/feed/' },
+  // Security / Cartel — shown ONLY on security tab, excluded from all other tabs
+  { name: 'Borderland Beat',    lang: 'en', tags: ['security'],               url: 'https://www.borderlandbeat.com/feeds/posts/default' },
+  { name: 'InSight Crime',      lang: 'en', tags: ['security'],               url: 'https://insightcrime.org/feed/' },
+];
+
+// ─── MEXICO RELEVANCE FILTER ──────────────────────────────────────────────────
+// Sources classed as 'mexican' get a free pass — they're inherently Mexico-focused
+// even when covering world events from a Mexican perspective.
+// International sources (BBC, Al Jazeera) are filtered strictly by keyword match
+// across BOTH headline and summary.
+const MEXICAN_SOURCES = new Set([
+  'Milenio', 'El Universal', 'Animal Politico', 'Excélsior', 'SinEmbargo',
+  'Proceso', 'La Jornada', 'El Financiero', 'Expansión', 'Aristegui Noticias',
+  'MND · Top Stories', 'MND · News', 'MND · Local', 'The News MX', 'Mexico Today',
+  'Yucatan Times', 'Vallarta Daily', 'Banderas News', 'Mexperience', 'Qroo.us',
+  'Borderland Beat', 'InSight Crime'
+]);
+
+const MEXICO_KEYWORDS = [
+  // Country
+  'mexico','mexican','méxico','mexicano','mexicana','mexicanos','mexicanas',
+  // States
+  'aguascalientes','baja california','campeche','chiapas','chihuahua',
+  'coahuila','colima','durango','guanajuato','guerrero','hidalgo','jalisco',
+  'michoacán','michoacan','morelos','nayarit','nuevo leon','nuevo león',
+  'oaxaca','puebla','querétaro','queretaro','quintana roo','san luis potosi',
+  'san luis potosí','sinaloa','sonora','tabasco','tamaulipas','tlaxcala',
+  'veracruz','yucatan','yucatán','zacatecas',
+  // Major cities
+  'ciudad de mexico','ciudad de méxico','cdmx','mexico city',
+  'guadalajara','monterrey','tijuana','cancun','cancún','puebla city',
+  'juarez','juárez','leon','léon','zapopan','nezahualcoyotl',
+  'mérida','merida','san luis potosi','acapulco','hermosillo',
+  'mexicali','culiacan','culiacán','aguascalientes','morelia',
+  'torreon','torreón','saltillo','mazatlan','mazatlán',
+  'puerto vallarta','cabo','los cabos','playa del carmen',
+  'oaxaca city','tuxtla','veracruz city','xalapa','tlaxcala city',
+  // People / institutions
+  'sheinbaum','amlo','obrador','morena','pemex','cfe','banxico',
+  'ine','cjng','sinaloa cartel','jalisco cartel',
+  'claudia sheinbaum','lopez obrador','lópez obrador',
+  // Economic / cultural markers
+  'peso','narco','cartel','maquiladora','ejido','tlcan','usmca','t-mec',
+  'tequila','mezcal','mariachi','dia de muertos','lucha libre',
+  // Border / migration context
+  'border wall','us-mexico border','mexico border','mexican migrants',
+  'mexican immigrants','deportation to mexico','migrant caravan'
+];
+
+function isMexicoRelevant(article) {
+  // Check translated text AND original Spanish text (catches "México", "mexicano", etc.)
+  const haystack = (
+    article.title + ' ' +
+    article.summary + ' ' +
+    (article.rawTitle || '') + ' ' +
+    (article.rawSummary || '')
+  ).toLowerCase();
+
+  return MEXICO_KEYWORDS.some(kw => haystack.includes(kw));
+}
+
+
+
+const TRANSLATE_API = 'https://api.mymemory.translated.net/get';
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let allArticles = [];
+let sourceStatus = {};
+let currentFilter = 'all';
+let activeFilterEl = null;
+let warningAcknowledged = false;
+
+function acknowledgeWarning() {
+  warningAcknowledged = true;
+  const activeTab = document.querySelector('.filter-tab.active');
+  filterBy('security', activeTab);
+}
+
+// ─── PROXY HELPERS ────────────────────────────────────────────────────────────
+function parseRSSXml(xml) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xml, 'text/xml');
+  const items = [...doc.querySelectorAll('item')];
+  if (!items.length) throw new Error('No items');
+  return items.map(item => {
+    // <link> in RSS is tricky — it's often a text node after the tag
+    let link = '';
+    const linkEl = item.querySelector('link');
+    if (linkEl) {
+      link = linkEl.textContent || linkEl.getAttribute('href') || '';
+      // Sometimes link is empty and next sibling is a text node
+      if (!link && linkEl.nextSibling) link = linkEl.nextSibling.textContent || '';
+    }
+    if (!link) link = item.querySelector('guid')?.textContent || '#';
+    return {
+      title: item.querySelector('title')?.textContent || '',
+      description: item.querySelector('description')?.textContent || '',
+      link: link.trim(),
+      pubDate: item.querySelector('pubDate')?.textContent || '',
+    };
+  });
+}
+
+async function tryRss2Json(url) {
+  const r = await fetch('https://api.rss2json.com/v1/api.json?count=8&rss_url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) });
+  const d = await r.json();
+  if (d.status !== 'ok' || !d.items?.length) throw new Error('rss2json: no items');
+  return d.items.map(i => ({ title: i.title, description: i.description, link: i.link || i.guid, pubDate: i.pubDate }));
+}
+
+async function tryAllOrigins(url) {
+  const r = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) });
+  const d = await r.json();
+  if (!d.contents) throw new Error('allorigins: empty');
+  return parseRSSXml(d.contents);
+}
+
+async function tryCorsProxy(url) {
+  const r = await fetch('https://corsproxy.io/?' + encodeURIComponent(url), { signal: AbortSignal.timeout(9000) });
+  const xml = await r.text();
+  return parseRSSXml(xml);
+}
+
+async function fetchFeedItems(url) {
+  for (const fn of [tryRss2Json, tryAllOrigins, tryCorsProxy]) {
+    try {
+      const items = await fn(url);
+      if (items && items.length) return items;
+    } catch (e) { /* try next proxy */ }
+  }
+  throw new Error('All proxies failed for: ' + url);
+}
+
+// ─── TRANSLATE ────────────────────────────────────────────────────────────────
+async function translate(text) {
+  if (!text || !text.trim()) return text;
+  try {
+    const params = new URLSearchParams({ q: text.slice(0, 500), langpair: 'es|en' });
+    const r = await fetch(TRANSLATE_API + '?' + params, { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    if (d.responseStatus === 200 && d.responseData?.translatedText) return d.responseData.translatedText;
+  } catch (e) {}
+  return text;
+}
+
+// ─── FETCH ONE FEED ───────────────────────────────────────────────────────────
+async function fetchFeed(feed) {
+  try {
+    const items = await fetchFeedItems(feed.url);
+    const articles = await Promise.all(items.slice(0, feed.max || 8).map(async item => {
+      let title = item.title || '';
+      let summary = (item.description || '').replace(/<[^>]+>/g, '').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+      if (summary.length > 180) summary = summary.slice(0, 180) + '…';
+      const rawTitle = title;
+      const rawSummary = summary;
+      if (feed.lang === 'es') {
+        [title, summary] = await Promise.all([translate(title), summary ? translate(summary) : Promise.resolve('')]);
+      }
+      return {
+        title: title.trim(),
+        summary: summary.trim(),
+        rawTitle: rawTitle.trim(),
+        rawSummary: rawSummary.trim(),
+        link: item.link || '#',
+        source: feed.name,
+        lang: feed.lang,
+        tags: feed.tags,
+        date: item.pubDate ? new Date(item.pubDate) : new Date(),
+      };
+    }));
+    sourceStatus[feed.name] = 'ok';
+    // Apply relevance filter — Mexican sources pass freely, international filtered by keyword
+    return articles.filter(a => a.title && isMexicoRelevant(a));
+  } catch (e) {
+    sourceStatus[feed.name] = 'error';
+    return [];
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function timeAgo(date) {
+  const diff = (Date.now() - date.getTime()) / 1000;
+  if (isNaN(diff) || diff < 0) return '';
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function renderCards(articles, showWarning = false) {
+  const container = document.getElementById('newsContainer');
+  container.innerHTML = '';
+
+  if (!articles.length) {
+    container.innerHTML = '<div class="empty-state"><h3>No stories loaded</h3><p>Some feeds may be temporarily unavailable.<br>Check the source status below or try refreshing.</p></div>';
+    document.getElementById('storyCount').textContent = '0 stories';
+    return;
+  }
+
+  // Security tab warning gate
+  if (showWarning && !warningAcknowledged) {
+    container.innerHTML =
+      '<div class="warning-gate">' +
+        '<div class="warning-icon">⚠️</div>' +
+        '<h3>Cartel & Security Content</h3>' +
+        '<p>This section contains reporting on organized crime, cartel violence, and related security issues in Mexico. Some articles may include graphic descriptions of violence.</p>' +
+        '<p class="warning-sub">Sources: Borderland Beat, InSight Crime</p>' +
+        '<button class="warning-btn" onclick="acknowledgeWarning()">I understand — show content</button>' +
+      '</div>';
+    document.getElementById('storyCount').textContent = articles.length + ' stor' + (articles.length !== 1 ? 'ies' : 'y');
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'news-grid';
+
+  articles.forEach(a => {
+    const card = document.createElement('a');
+    card.className = 'card';
+    card.href = a.link;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+    card.dataset.tags = a.tags.join(',');
+    const ago = timeAgo(a.date);
+    card.innerHTML =
+      '<div class="card-meta">' +
+        '<span class="card-source">' + a.source + '</span>' +
+        '<span class="card-lang">' + (a.lang === 'es' ? 'MX translated' : 'EN') + '</span>' +
+      '</div>' +
+      '<div class="card-title">' + a.title + '</div>' +
+      (a.summary ? '<div class="card-summary">' + a.summary + '</div>' : '') +
+      '<div class="card-footer">' +
+        '<span class="card-time">' + ago + '</span>' +
+        '<span class="card-arrow">&#x2192;</span>' +
+      '</div>';
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+  document.getElementById('storyCount').textContent = articles.length + ' stor' + (articles.length !== 1 ? 'ies' : 'y');
+}
+
+function renderSourcePills() {
+  const list = document.getElementById('sourcesList');
+  list.innerHTML = FEEDS.map(f => {
+    const s = sourceStatus[f.name];
+    const cls = s === 'ok' ? 'ok' : s === 'error' ? 'err' : '';
+    return '<span class="source-pill ' + cls + '">' + f.name + '</span>';
+  }).join('');
+}
+
+// ─── FILTER ───────────────────────────────────────────────────────────────────
+function filterBy(tag, el) {
+  currentFilter = tag;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+
+  let filtered;
+  if (tag === 'security') {
+    // Security tab: show ONLY security-tagged articles
+    filtered = allArticles.filter(a => a.tags.includes('security'));
+  } else if (tag === 'all') {
+    // All Sources: exclude security articles
+    filtered = allArticles.filter(a => !a.tags.includes('security'));
+  } else {
+    // Other tabs: exclude security articles, filter by tag
+    filtered = allArticles.filter(a => !a.tags.includes('security') && a.tags.includes(tag));
+  }
+  renderCards(filtered, tag === 'security');
+}
+
+// ─── MAIN LOAD ────────────────────────────────────────────────────────────────
+async function loadAllFeeds() {
+  const btn = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  btn.classList.add('loading');
+  icon.className = 'spin';
+  icon.textContent = '↻';
+  dot.className = 'dot loading';
+  statusText.textContent = 'Fetching feeds…';
+  sourceStatus = {};
+
+  // Show skeleton
+  document.getElementById('newsContainer').innerHTML =
+    '<div class="skeleton-grid">' +
+    Array(6).fill('<div class="skeleton-card"><div class="skel" style="height:10px;width:30%;margin-bottom:4px"></div><div class="skel" style="height:18px;width:88%"></div><div class="skel" style="height:13px;width:70%"></div><div class="skel" style="height:9px;width:20%"></div></div>').join('') +
+    '</div>';
+
+  const results = await Promise.allSettled(FEEDS.map(f => fetchFeed(f)));
+  const rawArticles = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
+  const totalRaw = rawArticles.length;
+  allArticles = rawArticles.sort((a, b) => b.date - a.date);
+
+  const okCount = Object.values(sourceStatus).filter(s => s === 'ok').length;
+  const errCount = Object.values(sourceStatus).filter(s => s === 'error').length;
+
+  dot.className = okCount === 0 ? 'dot error' : 'dot';
+  const filteredOut = totalRaw - allArticles.length;
+  statusText.textContent = okCount + ' source' + (okCount !== 1 ? 's' : '') + ' loaded' +
+    (filteredOut > 0 ? ' · ' + filteredOut + ' off-topic filtered' : '') +
+    (errCount ? ' · ' + errCount + ' unavailable' : '');
+
+  btn.classList.remove('loading');
+  icon.className = '';
+  icon.textContent = '↻';
+  document.getElementById('timestamp').textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  renderSourcePills();
+
+  // Re-apply current filter
+  const activeTab = document.querySelector('.filter-tab.active') || document.querySelector('.filter-tab');
+  filterBy(currentFilter, activeTab);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+loadAllFeeds();
+</script>
+</body>
+</html>
